@@ -1,0 +1,80 @@
+{
+  "api_id": 26499464,
+  "api_hash": "33517df0028944da2ac83bf97844cb86",
+  "string_session": "",
+  "channels": [
+    {
+      "name": "Quotes Route",
+      "source": "@Quotes",
+      "target": "@QuotientVibes",
+      "enabled": true,
+      "remove_links": true,
+      "strip_signatures": true,
+      "signatures": [
+        "Join @Quotes",
+        "t.me/Quotes",
+        "https://t.me/Quotes"
+      ]
+    },
+    {
+      "name": "Govt Naukri Route",
+      "source": "@NotesHubX",
+      "target": "@govt_naukari1",
+      "enabled": true,
+      "remove_links": true,
+      "strip_signatures": true,
+      "signatures": [
+        "NotesHubX",
+        "t.me/NotesHubX"
+      ]
+    },
+    {
+      "name": "Crypto News Route",
+      "source": "@Crypto_Ocean_CO",
+      "target": "@crypto_market_newz",
+      "enabled": true,
+      "remove_links": true,
+      "strip_signatures": true,
+      "signatures": [
+        "Crypto_Ocean_CO",
+        "t.me/Crypto_Ocean_CO"
+      ]
+    },
+    {
+      "name": "Trading PDF Book Route",
+      "source": "@ProTradingTips1",
+      "target": "@tradingpdfbook",
+      "enabled": true,
+      "remove_links": true,
+      "strip_signatures": true,
+      "signatures": [
+        "ProTradingTips1",
+        "t.me/ProTradingTips1"
+      ]
+    },
+    {
+      "name": "Anime Route",
+      "source": "@Anime_News4",
+      "target": "@animeflix_watch",
+      "enabled": true,
+      "remove_links": true,
+      "strip_signatures": true,
+      "signatures": [
+        "Anime_News4",
+        "t.me/Anime_News4"
+      ]
+    },
+    {
+      "name": "Movies Route",
+      "source": "@iPapkorn",
+      "target": "@sdmoviespointe",
+      "enabled": true,
+      "remove_links": true,
+      "strip_signatures": true,
+      "signatures": [
+        "iPapkorn",
+        "t.me/iPapkorn"
+      ]
+    }
+  ]
+}

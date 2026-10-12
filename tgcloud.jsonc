@@ -1,4 +1,0 @@
-{
-  // Forward Mate does not require a Mini App static front-end in release 1.
-  "static": false
-}
