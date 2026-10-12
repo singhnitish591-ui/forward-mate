@@ -11,7 +11,7 @@ from config_manager import load_config, save_config
 # Path to local session storage
 SESSION_FILE_PATH = os.path.join(os.path.dirname(__file__), "forwardmate_user")
 
-# Dummy health check server to satisfy Render/Cloud Web Service free plan
+# Dummy health check server to satisfy Render Free Web Service
 async def start_dummy_health_server():
     port = int(os.environ.get("PORT", 8080))
     app = web.Application()
@@ -30,7 +30,7 @@ async def main():
     print("      [*] FORWARD MATE -- MULTI-CHANNEL 24/7 USERBOT       ")
     print("=" * 65)
 
-    # Start the dummy web server so Render Free Web Service stays healthy
+    # Start dummy health server for Render
     await start_dummy_health_server()
 
     cfg = load_config()
@@ -42,7 +42,6 @@ async def main():
         print("[Error] Missing api_id or api_hash in config.json / environment")
         return
 
-    # Use StringSession if available, fallback to session file
     if string_session:
         print("[*] Starting Telegram client with cloud StringSession...")
         client = TelegramClient(StringSession(string_session), api_id, api_hash)
@@ -62,7 +61,7 @@ async def main():
         status = "ACTIVE" if ch.get("enabled", True) else "PAUSED"
         print(f"  {i}. [{name}] {ch.get('source')} -> {ch.get('target')} [{status}]")
 
-    # Map source peer_ids to target entities & route configs for instant O(1) matching
+    # Map source peer_ids to target entities & route configs
     source_map = {}
     source_entities = []
 
@@ -70,7 +69,7 @@ async def main():
         src = ch.get("source", "").strip()
         tgt = ch.get("target", "").strip()
         try:
-            # Join source channel so Telegram sends all incoming updates to this account
+            # Auto-join source channel to receive live server events
             try:
                 await client(JoinChannelRequest(src))
             except Exception:
@@ -94,20 +93,20 @@ async def main():
 
     print("\n" + "=" * 65)
     print(f"[*] LISTENING 24/7 TO {len(source_map)} ACTIVE SOURCE CHANNELS...")
-    print("    - Auto-joined all source channels to receive live updates.")
-    print("    - Unwanted links & promotional tags will be removed.")
-    print("    - Text, images, videos & documents will be preserved.")
-    print("    - Posts will be published directly to target without forward tag.")
+    print("    - Full Album/Multi-Photo & Single Media Support.")
+    print("    - Promotional links & tags cleaned.")
+    print("    - Published directly without forward tag.")
     print("=" * 65 + "\n")
 
-    # Listen specifically on the source entities to guarantee Telegram update delivery
+    # Album buffer to collect multi-photo/video posts together
+    processed_albums = set()
+
     @client.on(events.NewMessage(chats=source_entities if source_entities else None))
     async def handler(event):
         try:
             chat_peer_id = event.chat_id
             route_info = source_map.get(chat_peer_id)
 
-            # Fallback matching by username or channel ID
             if not route_info and event.chat:
                 chat_username = f"@{event.chat.username}" if getattr(event.chat, 'username', None) else ""
                 for pid, info in source_map.items():
@@ -124,6 +123,56 @@ async def main():
             src_title = route_info["source_title"]
             tgt_title = route_info["target_title"]
 
+            # Handle Grouped/Album Posts (like multi-photo collages in iPapkorn)
+            if event.grouped_id:
+                if event.grouped_id in processed_albums:
+                    return
+                processed_albums.add(event.grouped_id)
+
+                # Keep set bounded
+                if len(processed_albums) > 1000:
+                    processed_albums.clear()
+
+                print(f"\n[📸 New Album Post Detected] From: {src_title}")
+                # Wait briefly for all parts of the album to arrive
+                await asyncio.sleep(2.0)
+
+                # Fetch all messages belonging to this album
+                recent_msgs = await client.get_messages(event.chat, limit=15)
+                album_items = [m for m in recent_msgs if m.grouped_id == event.grouped_id]
+
+                if not album_items:
+                    album_items = [event.message]
+
+                # Extract caption from whichever message in the album carries it
+                raw_caption = ""
+                for m in album_items:
+                    if m.message:
+                        raw_caption = m.message
+                        break
+
+                cleaned_caption, _ = clean_content(
+                    text=raw_caption,
+                    remove_links=route.get("remove_links", True),
+                    strip_signatures=route.get("strip_signatures", True),
+                    signatures=route.get("signatures", [])
+                )
+
+                # Send all media files as a single album in chronological order
+                album_files = [m.media for m in reversed(album_items) if m.media]
+
+                try:
+                    await client.send_file(
+                        entity=target_entity,
+                        file=album_files,
+                        caption=cleaned_caption if cleaned_caption else None
+                    )
+                    print(f"  [✅ Successfully Published Album] {len(album_files)} items to: {tgt_title}")
+                except Exception as album_err:
+                    print(f"  [❌ Failed Album Delivery to {tgt_title}]: {album_err}")
+                return
+
+            # Handle Normal Single Message / Media Post
             print(f"\n[📨 New Post Detected] From: {src_title}")
 
             original_text = event.message.message or ""
@@ -139,7 +188,6 @@ async def main():
                 print(f"  [⏩ Skipped] Post contained only promo links or signatures.")
                 return
 
-            # Publish to target channel without forward tag
             try:
                 if has_media:
                     await client.send_file(
