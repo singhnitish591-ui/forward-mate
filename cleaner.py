@@ -21,17 +21,27 @@ def clean_content(
     text: str,
     remove_links: bool = True,
     strip_signatures: bool = True,
-    signatures: List[str] = None
+    signatures: List[str] = None,
+    source_handle: str = None
 ) -> Tuple[str, bool]:
     """
     Cleans text/caption by removing visible URLs, link anchors,
-    and configured signature lines while preserving coupon codes,
-    emojis, and meaningful text.
+    source channel handles, and configured signature lines while preserving
+    coupon codes, quotes, emojis, and meaningful text.
 
     Returns: (cleaned_text, is_meaningful)
     """
     if not text:
         return "", False
+
+    # Prepare full list of signatures including source handle (e.g. @Quotes)
+    sig_list = list(signatures or [])
+    if source_handle:
+        handle = source_handle.strip()
+        if handle and handle not in sig_list:
+            sig_list.append(handle)
+        if handle.startswith("@") and handle[1:] not in sig_list:
+            sig_list.append(handle[1:])
 
     lines = text.split("\n")
     cleaned_lines = []
@@ -42,13 +52,18 @@ def clean_content(
             cleaned_lines.append("")
             continue
 
-        # 1. Check custom signatures
-        if strip_signatures and signatures:
+        # 1. Check custom signatures and source channel handles
+        if strip_signatures and sig_list:
             is_sig = False
-            for sig in signatures:
+            for sig in sig_list:
                 if sig and sig.strip().lower() in stripped_line.lower():
-                    is_sig = True
-                    break
+                    # If the line is short (like "🖌 @Quotes 🐉" or "Join @Quotes"), remove the whole line
+                    if len(stripped_line) < 60:
+                        is_sig = True
+                        break
+                    else:
+                        # Remove just the signature/handle occurrence inside a longer line
+                        stripped_line = re.sub(re.escape(sig.strip()), "", stripped_line, flags=re.IGNORECASE).strip()
             if is_sig:
                 continue
 
@@ -58,10 +73,8 @@ def clean_content(
 
         # 3. Clean up dangling promotional text if left empty or only promo
         if stripped_line:
-            # Check if line was purely a promo phrase + link
             sub_promo = PROMO_PATTERN.sub("", stripped_line).strip(" :-–—•|*#@")
             if not sub_promo and len(stripped_line) < 35:
-                # Discard pure promotional remnant
                 continue
             cleaned_lines.append(stripped_line)
         else:
@@ -71,6 +84,7 @@ def clean_content(
     result_text = "\n".join(cleaned_lines)
     result_text = re.sub(r'\n{3,}', '\n\n', result_text).strip()
 
-    # Determine if meaningful text remains
-    meaningful = bool(result_text and len(result_text.strip()) > 0)
+    # Determine if meaningful text remains (ignore lines that are only divider lines like ━━━━━━━)
+    alpha_num_check = re.sub(r'[\W_]+', '', result_text)
+    meaningful = bool(alpha_num_check and len(alpha_num_check) > 1)
     return result_text, meaningful
